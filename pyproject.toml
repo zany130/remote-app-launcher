@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "remote-app-launcher"
+version = "0.1.0"
+description = "Browse and launch remote Linux desktop apps via Waypipe"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+remote-app-launcher = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "models", "discovery", "cache", "launcher", "utils"]
