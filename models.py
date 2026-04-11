@@ -31,7 +31,3 @@ class App:
             icon=d.get("icon", ""),
             categories=d.get("categories", ""),
         )
-
-    def fzf_line(self, delimiter: str = " | ") -> str:
-        cats = self.categories.replace(";", ", ").strip(", ") if self.categories else ""
-        return f"{self.name}{delimiter}{cats}{delimiter}{self.desktop_id}"

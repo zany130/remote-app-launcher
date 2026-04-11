@@ -2,6 +2,7 @@
 
 import json
 import logging
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -26,15 +27,32 @@ def run_ssh(host: str, command: str, capture: bool = True) -> subprocess.Complet
     return subprocess.run(full_cmd, capture_output=capture, text=True, check=False)
 
 
-def run_waypipe_launch(host: str, desktop_id: str, detached: bool = True) -> subprocess.Popen:
-    # gtk-launch spawns the app and exits; we must keep the session alive or waypipe
-    # tears down the Wayland tunnel. Pass the entire remote command as ONE argument to
-    # ssh so the semicolon isn't split by the remote shell; otherwise "sh -c" only
-    # gets "gtk-launch" and the desktop_id is lost (gtk-launch: missing application name).
-    remote_cmd = f"sh -c 'gtk-launch {desktop_id}; exec sleep 86400'"
+def default_remote_launch_body(desktop_id: str) -> str:
+    """
+    Remote launch snippet only (no keepalive). Runs on the remote inside sh -c.
+    GDK/Qt values are quoted so commas/semicolons are not parsed by the shell.
+    """
+    qid = shlex.quote(desktop_id)
+    return (
+        "env GDK_BACKEND='wayland,x11' QT_QPA_PLATFORM='wayland;xcb' "
+        f"XDG_SESSION_TYPE=wayland gtk-launch {qid}"
+    )
+
+
+def finalize_remote_inner(launch_body: str) -> str:
+    """Append waypipe keepalive after the user or default launch body."""
+    return launch_body.rstrip() + "\nexec sleep 86400"
+
+
+def run_waypipe_remote_inner(host: str, inner: str, detached: bool = True) -> subprocess.Popen:
+    """
+    Run inner script on remote via waypipe ssh. inner is the full sh -c script body
+    (including exec sleep 86400). Passed as one argv to ssh — no local shell.
+    """
+    remote_cmd = "sh -c " + shlex.quote(inner)
     full_cmd = ["waypipe", "ssh", "-t", host, remote_cmd]
     log.info("Running: waypipe ssh -t %s %s", host, remote_cmd)
-    kwargs = {}
+    kwargs: dict = {}
     if detached:
         kwargs = {
             "stdin": subprocess.DEVNULL,
@@ -43,6 +61,12 @@ def run_waypipe_launch(host: str, desktop_id: str, detached: bool = True) -> sub
             "start_new_session": True,
         }
     return subprocess.Popen(full_cmd, **kwargs)
+
+
+def run_waypipe_launch(host: str, desktop_id: str, detached: bool = True) -> subprocess.Popen:
+    body = default_remote_launch_body(desktop_id)
+    inner = finalize_remote_inner(body)
+    return run_waypipe_remote_inner(host, inner, detached=detached)
 
 
 def get_config_dir() -> Path:

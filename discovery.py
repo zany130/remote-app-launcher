@@ -13,6 +13,11 @@ from utils import run_ssh
 
 log = logging.getLogger("remote_app_launcher.discovery")
 
+
+class DiscoveryError(Exception):
+    """SSH or remote discovery failed (distinct from an empty but successful scan)."""
+
+
 # Paths to search for .desktop files on the remote host
 REMOTE_APPLICATIONS_PATHS = [
     "/usr/share/applications",
@@ -30,8 +35,8 @@ def _discover_raw(host: str) -> dict[str, str]:
     log.debug("Connecting to %s and running find+cat pipeline...", host)
     result = run_ssh(host, cmd)
     if result.returncode != 0:
-        log.warning("SSH command failed (exit %d)", result.returncode)
-        return {}
+        err = (result.stderr or "").strip() or (result.stdout or "").strip() or "no output"
+        raise DiscoveryError(f"SSH failed (exit {result.returncode}): {err}")
     out = result.stdout
     path_to_content: dict[str, str] = {}
     current_path: str | None = None
