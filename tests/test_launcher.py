@@ -36,8 +36,9 @@ class TestParseFzfSelection:
     def test_none_on_whitespace_only(self):
         assert parse_fzf_selection("   ") is None
 
-    def test_none_on_none_input(self):
-        assert parse_fzf_selection(None) is None  # type: ignore[arg-type]
+    def test_none_on_empty_desktop_id(self):
+        """An empty desktop_id field should return None."""
+        assert parse_fzf_selection(f"App{DELIM}Cat{DELIM}   ") is None
 
     def test_none_when_fewer_than_three_parts(self):
         """A line without enough delimiters should return None."""
