@@ -23,20 +23,47 @@ def run_fzf(apps: List[App], header: str = "Select app (type to search)") -> Opt
         log.warning("No apps in cache. Run 'remote-app-launcher refresh --host <host>' first.")
         return None
     lines = [app.fzf_line(FZF_DISPLAY_DELIM) for app in apps]
+
+    # Open /dev/tty explicitly so fzf can render its TUI on the controlling
+    # terminal even when stdout is captured.  Without this, environments such
+    # as ChromeOS Crostini may see an invisible fzf UI because capture_output
+    # (stderr=PIPE) can suppress the terminal draw path fzf falls back to
+    # when it cannot render via /dev/tty.  If /dev/tty is genuinely absent
+    # (e.g. launched from a non-terminal context) we surface a clear error.
     try:
-        proc = subprocess.run(
-            ["fzf", "--reverse", f"--header={header}"],
-            input="\n".join(lines),
-            capture_output=True,
-            text=True,
-            timeout=300,
+        tty = open("/dev/tty", "rb+", buffering=0)  # noqa: WPS515
+    except OSError as e:
+        log.error(
+            "Cannot open /dev/tty for fzf TUI (%s). "
+            "Run 'remote-app-launcher launch' from an interactive terminal.",
+            e,
         )
-    except FileNotFoundError:
-        log.error("fzf not found. Install fzf and ensure it's in PATH.")
         return None
-    except subprocess.TimeoutExpired:
-        return None
-    selected = proc.stdout.strip() if proc.stdout else ""
+
+    input_text = "\n".join(lines)
+    try:
+        try:
+            proc = subprocess.Popen(
+                ["fzf", "--reverse", f"--header={header}"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=tty,
+                text=True,
+            )
+        except FileNotFoundError:
+            log.error("fzf not found. Install fzf and ensure it's in PATH.")
+            return None
+
+        try:
+            stdout, _ = proc.communicate(input=input_text, timeout=300)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            stdout = ""
+    finally:
+        tty.close()
+
+    selected = (stdout or "").strip()
     if not selected:
         return None
     desktop_id = parse_fzf_selection(selected)
