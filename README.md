@@ -85,3 +85,19 @@ The waypipe process keeps the session open for 24 hours. To stop it early:
 ```bash
 pkill -f "waypipe ssh.*gtk-launch"
 ```
+
+### ChromeOS Crostini – invisible fzf UI
+
+If the fzf selection list appears blank (you can press Enter but see nothing), the
+launcher cannot render its TUI because the process lacks access to the controlling
+terminal (`/dev/tty`).
+
+The launcher now opens `/dev/tty` explicitly.  Always run
+`remote-app-launcher launch` **directly inside the Crostini Terminal app**, not via
+a desktop shortcut, cron job, or any wrapper that detaches from the terminal.
+
+If you see:
+```
+Cannot open /dev/tty for fzf TUI (…). Run 'remote-app-launcher launch' from an interactive terminal.
+```
+it means no TTY is available.  Switch to an interactive terminal session and try again.
