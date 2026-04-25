@@ -2,11 +2,13 @@
 
 import sys
 import os
+from unittest.mock import MagicMock, patch
 
 # Ensure the project root is on the path when running tests from the repo root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from launcher import parse_fzf_selection, FZF_DISPLAY_DELIM
+from launcher import FzfError, parse_fzf_selection, run_fzf, FZF_DISPLAY_DELIM
+from models import App
 
 
 DELIM = FZF_DISPLAY_DELIM  # " | "
@@ -52,3 +54,57 @@ class TestParseFzfSelection:
         """Desktop IDs can contain dots, hyphens, underscores."""
         line = f"GIMP{DELIM}Graphics{DELIM}org.gnome.gimp-2.10.desktop"
         assert parse_fzf_selection(line) == "org.gnome.gimp-2.10.desktop"
+
+
+class TestRunFzfErrors:
+    """Tests that run_fzf raises FzfError on hard failures."""
+
+    _APP = App(name="Foo", desktop_id="foo.desktop", desktop_path="/foo.desktop")
+
+    def test_raises_on_no_tty(self):
+        """FzfError is raised when /dev/tty cannot be opened."""
+        with patch("builtins.open", side_effect=OSError("No such file")):
+            try:
+                run_fzf([self._APP])
+                assert False, "Expected FzfError"
+            except FzfError as exc:
+                assert "/dev/tty" in str(exc)
+
+    def test_raises_when_fzf_not_found(self):
+        """FzfError is raised when the fzf binary is missing."""
+        fake_tty = MagicMock()
+        with patch("builtins.open", return_value=fake_tty), \
+             patch("subprocess.Popen", side_effect=FileNotFoundError):
+            try:
+                run_fzf([self._APP])
+                assert False, "Expected FzfError"
+            except FzfError as exc:
+                assert "fzf not found" in str(exc)
+
+    def test_raises_on_timeout(self):
+        """FzfError is raised when fzf times out."""
+        import subprocess as _sp
+        fake_tty = MagicMock()
+        fake_proc = MagicMock()
+        fake_proc.communicate.side_effect = [
+            _sp.TimeoutExpired(cmd="fzf", timeout=300),
+            ("", ""),
+        ]
+        with patch("builtins.open", return_value=fake_tty), \
+             patch("subprocess.Popen", return_value=fake_proc):
+            try:
+                run_fzf([self._APP])
+                assert False, "Expected FzfError"
+            except FzfError as exc:
+                assert "timed out" in str(exc)
+
+    def test_returns_none_on_cancellation(self):
+        """None (not FzfError) is returned when the user cancels (empty output)."""
+        fake_tty = MagicMock()
+        fake_proc = MagicMock()
+        fake_proc.communicate.return_value = ("", "")
+        with patch("builtins.open", return_value=fake_tty), \
+             patch("subprocess.Popen", return_value=fake_proc):
+            result = run_fzf([self._APP])
+        assert result is None
+

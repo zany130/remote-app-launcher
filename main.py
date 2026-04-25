@@ -7,7 +7,7 @@ import sys
 
 from cache import load_cache, save_cache
 from discovery import discover_apps
-from launcher import launch_app, run_fzf
+from launcher import FzfError, launch_app, run_fzf
 from utils import configure_logging, get_config_dir, load_host_from_config
 
 log = logging.getLogger("remote_app_launcher.main")
@@ -31,7 +31,11 @@ def cmd_refresh(host: str, verbose: bool = False) -> int:
 
 def cmd_launch(host: str) -> int:
     apps = load_cache(host)
-    selected = run_fzf(apps, header=f"Select app on {host} (type to search)")
+    try:
+        selected = run_fzf(apps, header=f"Select app on {host} (type to search)")
+    except FzfError as e:
+        log.error("%s", e)
+        return 1
     if not selected:
         return 0
     launch_app(host, selected, background=True)
