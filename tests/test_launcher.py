@@ -6,7 +6,6 @@ import os
 # Ensure the project root is on the path when running tests from the repo root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-import pytest
 from launcher import parse_fzf_selection, FZF_DISPLAY_DELIM
 
 
