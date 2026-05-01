@@ -1,0 +1,85 @@
+# Publishes the package to PyPI when a GitHub Release is published or a version
+# tag (v*) is pushed.
+#
+# --- PyPI Trusted Publishing (OIDC) setup ---
+# This workflow uses PyPI's Trusted Publishing (no API token required).
+# Before the first publish, configure a Trusted Publisher on PyPI:
+#   1. Go to https://pypi.org/manage/account/publishing/
+#   2. Add a new "GitHub Actions" publisher with:
+#        Owner:      zany130
+#        Repository: remote-app-launcher
+#        Workflow:   publish.yml
+#        Environment: pypi   (matches the `environment:` key below)
+#
+# --- Fallback: token-based publishing ---
+# If you prefer an API token instead of OIDC:
+#   1. Generate a token at https://pypi.org/manage/account/token/
+#   2. Add it as a repository secret named PYPI_API_TOKEN.
+#   3. Replace the `pypa/gh-action-pypi-publish` step's `with:` block with:
+#        password: ${{ secrets.PYPI_API_TOKEN }}
+#      and remove the `id-token: write` permission.
+
+name: Publish to PyPI
+
+on:
+  # Trigger when a GitHub Release is published (recommended workflow)
+  release:
+    types: [published]
+  # Also trigger on version tags pushed directly (e.g. git tag v1.0.0 && git push --tags)
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Pin the deployment environment so PyPI Trusted Publishing matches.
+    environment: pypi
+    # Required for PyPI Trusted Publishing (OIDC); remove if using a token.
+    permissions:
+      id-token: write
+    steps:
+      - name: Download built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        # Trusted Publishing is used by default (no password needed).
+        # To use an API token instead, add:
+        #   with:
+        #     password: ${{ secrets.PYPI_API_TOKEN }}
