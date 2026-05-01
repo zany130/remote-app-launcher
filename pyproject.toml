@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0,<77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,6 +9,39 @@ description = "Browse and launch remote Linux desktop apps via Waypipe"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
+license = {text = "MIT"}
+authors = [
+    { name = "zany130" },
+]
+keywords = [
+    "waypipe",
+    "wayland",
+    "remote",
+    "linux",
+    "desktop",
+    "launcher",
+    "ssh",
+    "cli",
+    "htpc",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Utilities",
+    "Topic :: System :: Shells",
+]
+
+[project.urls]
+Homepage = "https://github.com/zany130/remote-app-launcher"
+Repository = "https://github.com/zany130/remote-app-launcher"
+Issues = "https://github.com/zany130/remote-app-launcher/issues"
 
 [project.scripts]
 remote-app-launcher = "main:main"
